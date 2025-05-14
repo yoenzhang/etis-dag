@@ -1,0 +1,12 @@
+# requirements.txt (no version pins)
+
+requests
+beautifulsoup4
+feedparser
+newsapi-python
+openai
+psycopg2-binary
+numpy
+pandas
+scikit-learn
+joblib

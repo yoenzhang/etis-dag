@@ -1,5 +1,6 @@
 import openai
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.hooks.base import BaseHook 
 import psycopg2
 from psycopg2 import sql
 import time
@@ -11,10 +12,12 @@ import ssl
 # from psycopg2 import sql  # Not needed if we're not constructing dynamic SQL
 from modules.prompt import build_prompt
 
-
-
 # Load your OpenAI key from env or Airflow connections/variables
-
+openai.api_key = os.getenv("OPENAI_API_KEY") or \
+                 (BaseHook.get_connection("openai_default").password
+                  if BaseHook.get_connection("openai_default") else None)
+                 
+                 
 def extract_ivory_info_for_articles():
     """Fetch unprocessed ivory-related articles and extract seizure info using GPT-3.5-turbo."""
     
@@ -40,7 +43,7 @@ def extract_ivory_info_for_articles():
     for (article_id, title, summary, url, content) in articles_to_process:
         # Build the prompt messages for this article
         messages = build_prompt(title or "", summary or "", content or "", url or "")
-        
+                
         # Call the OpenAI ChatCompletion API
         try:
             response = openai.ChatCompletion.create(

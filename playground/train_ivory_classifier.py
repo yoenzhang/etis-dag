@@ -13,9 +13,6 @@ df = pd.read_csv("./data/labelled.csv")  # CSV with columns: title, link, publis
 
 print(df.columns)
 
-
-
-
 # 2) Combine title + summary as main text
 df['text'] = df['title'].fillna('') + " " + df['summary'].fillna('')
 X = df['text']            # Features
@@ -42,6 +39,6 @@ pipeline.fit(X_train, y_train)
 y_pred = pipeline.predict(X_test)
 print(classification_report(y_test, y_pred))
 
-# 7) Save the trained pipeline to a file (Joblib is a common choice)
+# 7) Save the trained pipeline to a file
 joblib.dump(pipeline, "elephant_ivory_model.joblib")
 print("Model saved to elephant_ivory_model.joblib")

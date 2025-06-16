@@ -1,4 +1,5 @@
-import openai
+# import openai
+import google.generativeai as genai
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.hooks.base import BaseHook 
 import psycopg2
@@ -12,14 +13,12 @@ import ssl
 # from psycopg2 import sql  # Not needed if we're not constructing dynamic SQL
 from modules.prompt import build_prompt
 
-# Load your OpenAI key from env or Airflow connections/variables
-openai.api_key = os.getenv("OPENAI_API_KEY") or \
-                 (BaseHook.get_connection("openai_default").password
-                  if BaseHook.get_connection("openai_default") else None)
-                 
+# Load your Gemini API key from Airflow connections
+conn = BaseHook.get_connection("gemini_default")
+genai.configure(api_key=conn.password)
                  
 def extract_ivory_info_for_articles():
-    """Fetch unprocessed ivory-related articles and extract seizure info using GPT-3.5-turbo."""
+    """Fetch unprocessed ivory-related articles and extract seizure info using Gemini 1.5 Flash Preview."""
     
     pg_hook = PostgresHook(postgres_conn_id="postgres_default")
     
@@ -41,42 +40,20 @@ def extract_ivory_info_for_articles():
         return
     
     for (article_id, title, summary, url, content) in articles_to_process:
-        # Build the prompt messages for this article
-        messages = build_prompt(title or "", summary or "", content or "", url or "")
-                
-        # Call the OpenAI ChatCompletion API
+        # Build the prompt as a string for Gemini
+        prompt = build_prompt(title or "", summary or "", content or "", url or "")
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=messages,
-                temperature=0,  # deterministic output
-                max_tokens=512  # enough space for output JSON
-            )
-        except openai.error.RateLimitError as e:
-            print(f"Rate limit error for article {article_id}, retrying in 5 seconds...")
-            time.sleep(5)
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    temperature=0,
-                    max_tokens=512
-                )
-            except Exception as e2:
-                print(f"Failed to get response for article {article_id} after retry: {e2}")
-                continue  # skip this article on persistent failure
+            model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
+            response = model.generate_content(prompt)
+            result_text = response.text.strip()
+            time.sleep(6)  # Throttle to stay under 10 requests per minute
         except Exception as e:
-            print(f"OpenAI API error for article {article_id}: {e}")
+            print(f"Gemini API error for article {article_id}: {e}")
             continue
-        
-        # Extract the model's response
-        result_text = response['choices'][0]['message']['content'].strip()
-        
         # Parse the JSON output
         try:
             data = json.loads(result_text)
         except json.JSONDecodeError:
-            # Attempt to isolate JSON substring if model returned extra text
             try:
                 start_idx = result_text.index('{')
                 end_idx = result_text.rfind('}')

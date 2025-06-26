@@ -2,7 +2,7 @@
 import os
 
 # Path to your requirements.txt file
-requirements_file = '/Users/bilalchoudhary/Desktop/ura-w25/etis-dag/airflow_home/requirements.txt'
+requirements_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'requirements.txt')
 
 # Standard Python libraries (you can expand this list as needed)
 standard_libraries = [

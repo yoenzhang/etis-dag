@@ -18,7 +18,7 @@ conn = BaseHook.get_connection("gemini_default")
 genai.configure(api_key=conn.password)
                  
 def extract_ivory_info_for_articles():
-    """Fetch unprocessed ivory-related articles and extract seizure info using Gemini 1.5 Flash Preview."""
+    """Fetch unprocessed ivory-related articles and extract seizure info using Gemini 2.5 Flash."""
     
     pg_hook = PostgresHook(postgres_conn_id="postgres_default")
     

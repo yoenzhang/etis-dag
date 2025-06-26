@@ -1,26 +1,29 @@
-from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
-from datetime import datetime
-import joblib
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 import os
 import logging
+import joblib
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 def apply_ml_classifier() -> None:
     """
-    Applies ML logistic regression model to the current data to apply pre classfication label
+    Applies ML classifier to unclassified articles using the new pipeline approach.
+    Uses separate vectorizer, classifier, and threshold components.
     """
+    logging.info("Starting ML classification with new pipeline...")
     
-    logging.info("Current working directory: %s", os.getcwd())
-    logging.info("Files in current directory: %s", os.listdir("."))
-    logging.info("Files in current directory: %s", os.listdir("./dags"))
-
-
-    pg_hook =  PostgresHook(postgres_conn_id="postgres_default")
+    try:
+        # Load the new pipeline components
+        vectorizer = joblib.load("./dags/data/ivory_vectorizer.joblib")
+        classifier = joblib.load("./dags/data/ivory_classifier.joblib")
+        threshold = joblib.load("./dags/data/ivory_threshold.joblib")
+        logging.info("Loaded new pipeline components successfully")
         
-    # importing model pipeline
-    pipeline = joblib.load("./dags/data/elephant_ivory_model.joblib")
-    # Extract articles that have not been classified yet
+    except Exception as e:
+        logging.error(f"Failed to load ML pipeline components: {e}")
+        raise
+    
+    pg_hook = PostgresHook(postgres_conn_id="postgres_default")
+    
+    # Get unclassified articles
     select_sql = """
         SELECT id, title, summary
         FROM articles 
@@ -29,31 +32,35 @@ def apply_ml_classifier() -> None:
     rows = pg_hook.get_records(select_sql)
     articles_to_classify = [(r[0], r[1], r[2]) for r in rows]
     
+    logging.info(f"Found {len(articles_to_classify)} articles to classify")
+    
     for article_id, title, summary in articles_to_classify:
-        combined_text = f"{title}   {summary} "
-        
-        
-        # run prediction -- 1 being relevant and 0 being irrelevant 
-        prediction = pipeline.predict([combined_text]) #  array of [1] or [0]
-        prob = pipeline.predict_proba([combined_text])  # [[prob_of_0, prob_of_1]]
-        
-        
-        # Convert NumPy dtypes to native Python types
-        prediction_value = int(prediction[0])
-        prob_of_1 = float(prob[0][1])
-
-        print(
-            f"Classifying '{title}' as {prediction_value} with confidence {prob_of_1}"
-        )
-        
-        # Updating database with ML prediction 
-        update_sql = """
-            UPDATE articles
-            SET ml_class = %s
-            WHERE id = %s;
-        """
-        pg_hook.run(update_sql, parameters=(prediction_value, article_id))
+        try:
+            # Prepare text (same as training)
+            combined_text = f"{title or ''}   {summary or ''} "
+            
+            # Transform text using vectorizer
+            features = vectorizer.transform([combined_text])
+            
+            # Get probability predictions
+            prob = classifier.predict_proba(features)
+            prob_of_1 = float(prob[0][1])
+            
+            # Apply threshold to get final prediction
+            prediction_value = 1 if prob_of_1 >= threshold else 0
+            
+            # Update database
+            update_sql = """
+                UPDATE articles
+                SET ml_class = %s
+                WHERE id = %s;
+            """
+            pg_hook.run(update_sql, parameters=(prediction_value, article_id))
+            
+            logging.info(f"Classified article {article_id}: prob={prob_of_1:.3f} (threshold={threshold:.3f}) → class={prediction_value}")
+            
+        except Exception as e:
+            logging.error(f"Error classifying article {article_id}: {e}")
+            continue
     
-
-    
-    
+    logging.info("ML classification completed successfully")

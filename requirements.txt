@@ -1,12 +1,18 @@
-# requirements.txt (no version pins)
+# requirements.txt for Airflow 2.8.1 (Python 3.9+) and project dependencies
 
-requests
-beautifulsoup4
-feedparser
-newsapi-python
-openai
-psycopg2-binary
-numpy
-pandas
-scikit-learn
-joblib
+# Web scraping and HTTP requests
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+feedparser>=6.0.0
+newsapi-python>=0.2.7
+
+# AI and ML
+openai>=1.0.0
+google-generativeai>=0.7.0,<0.8.0
+numpy>=1.22.0
+pandas>=1.5.0
+scikit-learn>=1.3.0
+joblib>=1.3.0
+
+# Database
+psycopg2-binary>=2.9.0 

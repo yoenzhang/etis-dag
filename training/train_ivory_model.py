@@ -55,7 +55,7 @@ def hyperparam_search(X, y):
                 param_grid[name],
                 cv=cv,
                 scoring='f1',
-                n_jobs=1,  # Single job for compatibility
+                n_jobs=1,
                 verbose=1
             )
             grid.fit(X, y)
@@ -104,16 +104,12 @@ def main():
     print("Finding optimal threshold...")
     thresh, f1 = find_optimal_threshold(best_pipeline, X_val, y_val)
     print(f"Optimal threshold = {thresh:.3f} (val F1 = {f1:.3f})")
-
-    # 4) Save with compatibility settings for numpy 1.22.4
-    print("Saving artifacts with compatibility settings...")
     
-    # Save with older numpy compatibility
     joblib.dump(
         best_pipeline.named_steps['tfidf'], 
         "../dags/data/ivory_vectorizer.joblib",
         compress=3,
-        protocol=4  # Use older protocol for compatibility
+        protocol=4
     )
     joblib.dump(
         best_pipeline.named_steps['clf'], 

@@ -40,9 +40,7 @@ example_output = {
     "url": "https://eia-international.org/news/large-ivory-seizure-mozambique-2024"
 }
 
-# Now the actual article prompt (to be filled in for each article)
 def build_prompt(title, summary, content, url):
-    # Compose a single string prompt for Gemini
     prompt = (
         "You are a data extraction assistant tasked with analyzing news articles about wildlife trafficking. "
         "You ONLY reply in valid JSON format and nothing else. Do not include any explanation or extra text. "

@@ -66,15 +66,12 @@ def fetch_url_body(link: str, max_bytes=5_000_000, max_duration=10):
 
 @provide_session
 def get_last_dag_run_date(dag_id="etis_dag", session=None):
-    # last_run = (
-    #     session.query(DagRun)
-    #     .filter(DagRun.dag_id == dag_id, DagRun.state == State.SUCCESS)
-    #     .order_by(DagRun.execution_date.desc())
-    #     .first()
-    # )
-    # if last_run:
-    #     return last_run.execution_date.strftime('%Y-%m-%d')
-    # return None
-    
-    # Temporary: Return fixed date for testing
-    return "2025-01-01"
+    last_run = (
+        session.query(DagRun)
+        .filter(DagRun.dag_id == dag_id, DagRun.state == State.SUCCESS)
+        .order_by(DagRun.execution_date.desc())
+        .first()
+    )
+    if last_run:
+        return last_run.execution_date.strftime('%Y-%m-%d')
+    return None

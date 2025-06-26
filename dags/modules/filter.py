@@ -7,7 +7,7 @@ class Article:
     title: str
     link: str
     published: str
-    content: str  # short snippet or summary
+    content: str
 
 def rule_based_filter(articles: List[Article]) -> List[Article]:
     """

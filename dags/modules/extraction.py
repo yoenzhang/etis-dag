@@ -15,7 +15,6 @@ from modules.utils import get_last_dag_run_date
 import time
 
 
-# ------- Models ---------- #
 @dataclass
 class Article:
     title: str
@@ -32,9 +31,6 @@ class Article:
             + "-" * 40
         )
 
-
-# -------- Extraction Constants ------------ #
-
 QUERY_LIST = [
     '("elephant" OR "elephants") AND (ivory OR tusks) AND ("illegal trade" OR trafficking OR smuggling OR seizure OR confiscation)',
 ]
@@ -48,7 +44,6 @@ GOOGLE_ALERT_RSS: Dict[str, str] = {
     'elephant tusks': 'https://www.google.com/alerts/feeds/09542737377863196634/13970440859733604322'
 }
 
-# ---- Additional News API Keys & RSS Feeds ----
 CURRENTS_API_KEY = "ZWdnRwV7_YtoJm_LwMt5eVkFayV2CDxcKQwDRKwkNQ-gpxra"
 GUARDIAN_API_KEY = "eeb5b860-3b48-46bb-86c3-c34dd946c9c3"
 MEDIASTACK_API_KEY  = "51aefb0ae9e5947d6b0e456265802c08"
@@ -161,6 +156,11 @@ def fetch_news_api() -> None:
     os.environ['NO_PROXY'] = '*'
     last_run_time = get_last_dag_run_date()
     print(f"the last run time was {last_run_time}")
+
+    if last_run_time is None:
+        from datetime import timedelta
+        last_run_time = (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d')
+        print(f"No previous run found, using default date: {last_run_time}")
 
     newsapi = NewsApiClient(api_key=os.getenv("NEWS_API_KEY", ""))
 
@@ -297,7 +297,6 @@ def fetch_currents_news() -> None:
         if not news_items:
             break
         
-        # collect into Article objects
         for item in news_items:
             all_articles.append(Article(
                 title=item.get("title", ""),
@@ -398,7 +397,6 @@ def fetch_mediastack_news() -> None:
     endpoint = "http://api.mediastack.com/v1/news"
     last_run = get_last_dag_run_date()
 
-    # comma-separated keywords to include; excludes none
     keywords = ",".join([
         "illegal ivory",
         "illegal ivory extraction",
@@ -434,7 +432,6 @@ def fetch_mediastack_news() -> None:
             break
 
         for item in data:
-            # optionally you could parse item["published_at"] and skip anything before last_run
             all_articles.append(Article(
                 title     = item.get("title", ""),
                 link      = item.get("url", ""),
@@ -448,7 +445,7 @@ def fetch_mediastack_news() -> None:
         if offset >= total:
             break
 
-        time.sleep(1.2)  # throttle
+        time.sleep(1.1)
 
     filtered = rule_based_filter(all_articles)
     db_insert(filtered)

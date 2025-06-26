@@ -11,7 +11,6 @@ def apply_ml_classifier() -> None:
     logging.info("Starting ML classification with new pipeline...")
     
     try:
-        # Load the new pipeline components
         vectorizer = joblib.load("./dags/data/ivory_vectorizer.joblib")
         classifier = joblib.load("./dags/data/ivory_classifier.joblib")
         threshold = joblib.load("./dags/data/ivory_threshold.joblib")

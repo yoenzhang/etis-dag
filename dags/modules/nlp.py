@@ -1,4 +1,3 @@
-# import openai
 import google.generativeai as genai
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.hooks.base import BaseHook 
@@ -10,12 +9,12 @@ import json
 import os
 import ssl
 
-# from psycopg2 import sql  # Not needed if we're not constructing dynamic SQL
 from modules.prompt import build_prompt
 
 # Load your Gemini API key from Airflow connections
 conn = BaseHook.get_connection("gemini_default")
-genai.configure(api_key=conn.password)
+api_key = conn.extra_dejson.get("api_key")
+genai.configure(api_key=api_key)
                  
 def extract_ivory_info_for_articles():
     """Fetch unprocessed ivory-related articles and extract seizure info using Gemini 2.5 Flash."""

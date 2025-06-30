@@ -12,7 +12,7 @@ def parse_additional_info(text: str):
       2. Joins all middle lines into one summary string
       3. Finds ALL URLs in the chunk
       4. Creates one record per URL found
-    Yields tuples: (title, link, published, summary)
+    Yields tuples: (title, link, published, summary, label)
     """
     # split on any blank line (one or more newlines with optional spaces)
     raw_chunks = re.split(r'\n\s*\n', text.strip())
@@ -69,10 +69,10 @@ def extract_to_df(csv_path: str):
         csv_path: Path to the CSV file containing additional_information column
         
     Returns:
-        DataFrame with columns: title, link, published, summary
+        DataFrame with columns: title, link, published, summary, label
     """
-    # Skip the first malformed line and use the second line as header
-    df = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=str, skiprows=1)
+    # For v2 format, don't skip rows as it has proper headers
+    df = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=str)
     
     if "additional_information" not in df.columns:
         raise ValueError(f"Column 'additional_information' not found in {csv_path}. Available columns: {list(df.columns)}")
@@ -87,8 +87,8 @@ def extract_to_df(csv_path: str):
 if __name__ == "__main__":
     # Define paths relative to the script location
     script_dir = Path(__file__).parent
-    input_file = script_dir / "data" / "open_source_records.csv"
-    output_file = script_dir / "data" / "extracted_open_source_records.csv"
+    input_file = script_dir / "data" / "open_source_records_v2.csv"
+    output_file = script_dir / "data" / "extracted_open_source_records_v2.csv"
     
     print(f"Reading from: {input_file}")
     print(f"Writing to: {output_file}")
@@ -110,4 +110,4 @@ if __name__ == "__main__":
     
     # Save deduplicated results
     dedup_df.to_csv(output_file, index=False)
-    print(f"Successfully extracted {len(dedup_df)} unique records to {output_file}")
+    print(f"Successfully extracted {len(dedup_df)} unique records to {output_file}") 

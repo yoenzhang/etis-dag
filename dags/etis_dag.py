@@ -18,6 +18,8 @@ from modules.ml_classify import apply_ml_classifier
 from modules.load import scrape_full_articles
 # LLM extraction
 from modules.nlp import extract_ivory_info_for_articles
+# Negative example collection
+from modules.negative_collector import collect_all_negative_examples
 
 default_args = {
     "owner": "etis_team",
@@ -34,7 +36,7 @@ default_args = {
 with DAG(
     dag_id="etis_dag",
     default_args=default_args,
-    description="ETIS ingestion: acquisition → ML → scrape → LLM extraction",
+    description="ETIS ingestion: acquisition → ML → scrape → LLM extraction → negative collection",
     schedule_interval="@daily",
     catchup=False,
 ) as dag:
@@ -88,6 +90,12 @@ with DAG(
         python_callable=extract_ivory_info_for_articles,
     )
 
+    # ──────────── Negative Collection ────────────
+    collect_negative_examples_task = PythonOperator(
+        task_id="collect_negative_examples",
+        python_callable=collect_all_negative_examples,
+    )
+
     # ─────────────── Dependencies ───────────────
     [
         fetch_google_alerts_task,
@@ -98,4 +106,5 @@ with DAG(
         fetch_mediastack_task,
     ] >> apply_ml_classifier_task \
       >> scrape_full_articles_task \
-      >> extract_ivory_info_task
+      >> extract_ivory_info_task \
+      >> collect_negative_examples_task

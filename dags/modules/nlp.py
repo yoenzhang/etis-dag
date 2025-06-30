@@ -8,6 +8,7 @@ from modules.prompt import build_prompt
 import json
 import os
 import ssl
+from modules.negative_collector import negative_collector
 
 from modules.prompt import build_prompt
 
@@ -82,6 +83,15 @@ def extract_ivory_info_for_articles():
         
         if not_relevant:
             print(f"Article {article_id} is not an ivory seizure-related article. Skipping insertion.")
+            # Collect this as a negative example
+            negative_collector.add_llm_rejected_article(
+                title=title or '',
+                link=url or '',
+                published='',  # We don't have published date in this query
+                summary=summary or '',
+                llm_comment=data.get("comment", "No seizure information found"),
+                llm_response=result_text
+            )
             continue
         
         # Insert the extracted data using a plain string for the INSERT query

@@ -2,6 +2,7 @@ import os
 import logging
 import joblib
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from modules.negative_collector import negative_collector
 
 def apply_ml_classifier() -> None:
     """
@@ -55,6 +56,26 @@ def apply_ml_classifier() -> None:
                 WHERE id = %s;
             """
             pg_hook.run(update_sql, parameters=(prediction_value, article_id))
+            
+            # Collect negative examples for articles classified as 0
+            if prediction_value == 0:
+                # Get the full article data for negative collection
+                article_sql = """
+                    SELECT title, summary, link, published
+                    FROM articles
+                    WHERE id = %s;
+                """
+                article_row = pg_hook.get_records(article_sql, parameters=(article_id,))
+                if article_row:
+                    article_data = article_row[0]
+                    negative_collector.add_ml_negative_article(
+                        title=article_data[0] or '',
+                        link=article_data[2] or '',
+                        published=article_data[3] or '',
+                        summary=article_data[1] or '',
+                        probability=prob_of_1,
+                        threshold=threshold
+                    )
             
             logging.info(f"Classified article {article_id}: prob={prob_of_1:.3f} (threshold={threshold:.3f}) → class={prediction_value}")
             

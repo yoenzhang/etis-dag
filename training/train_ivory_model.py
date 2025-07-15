@@ -7,11 +7,38 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, precision_recall_curve
+from pathlib import Path
 
-def load_data(path: str):
-    df = pd.read_csv(path)
-    df = df.dropna(subset=['title','summary','label'])
-    df['text'] = df['title'].str.lower() + ' ' + df['summary'].str.lower()
+# Load full dataset: combine positives and negatives (copied from train_ivory_classifier.py)
+def load_full_data():
+    data_dir = Path(__file__).parent / "data"
+    # Load positives
+    v1_file = data_dir / "extracted_open_source_records.csv"
+    v2_file = data_dir / "extracted_open_source_records_v2.csv"
+    pos_dfs = []
+    if v1_file.exists():
+        v1_df = pd.read_csv(v1_file)
+        pos_dfs.append(v1_df)
+    if v2_file.exists():
+        v2_df = pd.read_csv(v2_file)
+        pos_dfs.append(v2_df)
+    if not pos_dfs:
+        raise ValueError("No positive data found!")
+    pos_df = pd.concat(pos_dfs, ignore_index=True)
+    pos_df['label'] = 1
+    # Load negatives
+    neg_file = data_dir / "extracted_negative_examples.csv"
+    if not neg_file.exists():
+        raise ValueError("No negative data found!")
+    neg_df = pd.read_csv(neg_file)
+    neg_df['label'] = 0
+    # Combine
+    df = pd.concat([pos_df, neg_df], ignore_index=True)
+    # Remove duplicates by link
+    df = df.drop_duplicates(subset=['link'])
+    # Drop rows missing required fields (only 'summary' is required)
+    df = df.dropna(subset=['summary'])
+    df['text'] = df['title'].fillna('').str.lower() + ' ' + df['summary'].fillna('').str.lower()
     return df['text'], df['label']
 
 def build_pipeline(estimator):
@@ -83,13 +110,17 @@ def find_optimal_threshold(model, X_val, y_val):
 
 def main():
     print("Loading data...")
-    X, y = load_data("../training/data/labelled.csv")
+    X, y = load_full_data()
     print(f"Loaded {len(X)} samples with {y.sum()} positive cases")
     
-    X_train, X_val, y_train, y_val = train_test_split(
+    # 60/20/20 split: train/val/test
+    X_temp, X_test, y_temp, y_test = train_test_split(
         X, y, test_size=0.2, stratify=y, random_state=42
     )
-    print(f"Train: {len(X_train)} samples, Validation: {len(X_val)} samples")
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_temp, y_temp, test_size=0.25, stratify=y_temp, random_state=42
+    )  # 0.25 x 0.8 = 0.2
+    print(f"Train: {len(X_train)} samples, Validation: {len(X_val)} samples, Test: {len(X_test)} samples")
 
     # 1) Hyperparameter search
     print("Starting hyperparameter search...")
@@ -105,6 +136,11 @@ def main():
     thresh, f1 = find_optimal_threshold(best_pipeline, X_val, y_val)
     print(f"Optimal threshold = {thresh:.3f} (val F1 = {f1:.3f})")
     
+    # Save test set for evaluation
+    test_set = pd.DataFrame({'text': X_test, 'label': y_test})
+    test_set.to_csv("../training/data/test_set.csv", index=False)
+    print("Saved test set to ../training/data/test_set_model.csv")
+
     joblib.dump(
         best_pipeline.named_steps['tfidf'], 
         "../dags/data/ivory_vectorizer.joblib",

@@ -10,9 +10,8 @@ warnings.filterwarnings('ignore')
 def load_all_data():
     """
     Load and combine all available data sources:
-    1. Positive examples from extracted_open_source_records.csv (v1)
-    2. Negative examples from extracted_negative_examples.csv (DAG pipeline)
-    3. Mixed examples from labelled.csv (existing dataset)
+    1. Positive examples from extracted_open_source_records.csv and extracted_open_source_records_v2.csv
+    2. Negative examples from extracted_negative_examples.csv
     """
     print("=== Loading All Data Sources ===")
     
@@ -21,32 +20,33 @@ def load_all_data():
     
     all_data = []
     
-    # 1. Load positive examples from v1 extraction
+    # 1. Load positive examples from both open source records files
     v1_file = data_dir / "extracted_open_source_records.csv"
+    v2_file = data_dir / "extracted_open_source_records_v2.csv"
+    pos_dfs = []
     if v1_file.exists():
         v1_df = pd.read_csv(v1_file)
-        v1_df['source_dataset'] = 'v1_extraction'
-        all_data.append(v1_df)
+        pos_dfs.append(v1_df)
         print(f"Loaded v1 positive examples: {len(v1_df)} records")
+    if v2_file.exists():
+        v2_df = pd.read_csv(v2_file)
+        pos_dfs.append(v2_df)
+        print(f"Loaded v2 positive examples: {len(v2_df)} records")
+    if pos_dfs:
+        pos_df = pd.concat(pos_dfs, ignore_index=True)
+        pos_df['label'] = 1
+        pos_df['source_dataset'] = 'positive'
+        all_data.append(pos_df)
+        print(f"Total positive examples: {len(pos_df)} records")
     
-    # 2. Load negative examples from DAG pipeline
+    # 2. Load negative examples
     negative_file = data_dir / "extracted_negative_examples.csv"
     if negative_file.exists():
         negative_df = pd.read_csv(negative_file)
-        negative_df['source_dataset'] = 'dag_negative'
+        negative_df['label'] = 0
+        negative_df['source_dataset'] = 'negative'
         all_data.append(negative_df)
-        print(f"Loaded DAG negative examples: {len(negative_df)} records")
-    
-    # 3. Load mixed examples from labelled.csv
-    labelled_file = data_dir / "labelled.csv"
-    if labelled_file.exists():
-        labelled_df = pd.read_csv(labelled_file)
-        labelled_df['source_dataset'] = 'labelled'
-        # Add text column if not present
-        if 'text' not in labelled_df.columns:
-            labelled_df['text'] = labelled_df['title'].fillna('') + ' ' + labelled_df['summary'].fillna('')
-        all_data.append(labelled_df)
-        print(f"Loaded labelled examples: {len(labelled_df)} records")
+        print(f"Loaded negative examples: {len(negative_df)} records")
     
     if not all_data:
         raise ValueError("No data sources found!")
@@ -88,8 +88,8 @@ def load_models():
     
     # Load old model - try both locations
     old_model_paths = [
-        data_dir / "elephant_ivory_model.joblib",
-        dag_data_dir / "elephant_ivory_model.joblib"
+        data_dir / "elephant_ivory_model_old.joblib",
+        dag_data_dir / "elephant_ivory_model_old.joblib"
     ]
     
     old_model_path = None
@@ -242,23 +242,56 @@ def analyze_errors(y_true, y_pred_old, y_pred_new, texts, model_name):
             print(f"\nText: {texts[i][:100]}...")
             print(f"True: {y_true[i]}, Old: {y_pred_old[i]}, New: {y_pred_new[i]}")
 
+def save_performance_summary(results, old_report, new_report, old_cm, new_cm):
+    summary_file = Path(__file__).parent / "model_performance_summary.txt"
+    with open(summary_file, 'a') as f:  # Use append mode
+        f.write("=== Model Performance Summary ===\n\n")
+        f.write("--- Old Model ---\n")
+        for k, v in results.get('old_model', {}).items():
+            if k != 'confusion_matrix':
+                f.write(f"{k.capitalize()}: {v}\n")
+        f.write("\nConfusion Matrix:\n")
+        f.write(str(old_cm) + "\n")
+        f.write("\nClassification Report:\n")
+        f.write(old_report + "\n\n")
+        f.write("--- New Ensemble Model ---\n")
+        for k, v in results.get('new_ensemble', {}).items():
+            if k != 'confusion_matrix':
+                f.write(f"{k.capitalize()}: {v}\n")
+        f.write("\nConfusion Matrix:\n")
+        f.write(str(new_cm) + "\n")
+        f.write("\nClassification Report:\n")
+        f.write(new_report + "\n")
+        f.write("\n" + ("="*40) + "\n\n")  # Separator for clarity
+    print(f"\nModel performance summary appended to: {summary_file}")
+
 def main():
     """
     Main evaluation function.
     """
     print("=== Comprehensive Model Evaluation ===")
     
-    # Load all data
-    data = load_all_data()
-    
-    # Prepare features and labels
+    # Load test set only (held-out set)
+    test_set_path = Path(__file__).parent / "data" / "test_set_model.csv"
+    if not test_set_path.exists():
+        test_set_path = Path(__file__).parent / "data" / "test_set_classifier.csv"
+    if not test_set_path.exists():
+        raise FileNotFoundError("No test set found at test_set_model.csv or test_set_classifier.csv")
+    data = pd.read_csv(test_set_path)
+    print(f"Loaded test set: {len(data)} samples")
     X = data['text'].fillna('')
     y = data['label']
-    
-    print(f"\nDataset size: {len(X)}")
-    print(f"Positive examples: {(y == 1).sum()}")
-    print(f"Negative examples: {(y == 0).sum()}")
-    
+    print(f"Test set positive examples: {(y == 1).sum()}")
+    print(f"Test set negative examples: {(y == 0).sum()}")
+
+    # --- Old code: load and combine all data sources ---
+    # data = load_all_data()
+    # X = data['text'].fillna('')
+    # y = data['label']
+    # print(f"\nDataset size: {len(X)}")
+    # print(f"Positive examples: {(y == 1).sum()}")
+    # print(f"Negative examples: {(y == 0).sum()}")
+
     # Load models
     models = load_models()
     
@@ -268,12 +301,17 @@ def main():
     
     # Make predictions
     results = {}
+    old_report = new_report = ''
+    old_cm = new_cm = None
     
     # Old model predictions
     if 'old_model' in models:
         y_pred_old = predict_with_old_model(models['old_model'], X)
         if y_pred_old is not None:
-            results['old_model'] = evaluate_model(y, y_pred_old, "Old Model")
+            metrics = evaluate_model(y, y_pred_old, "Old Model")
+            results['old_model'] = metrics
+            old_cm = metrics['confusion_matrix']
+            old_report = classification_report(y, y_pred_old, target_names=['Negative', 'Positive'])
     
     # New ensemble predictions
     if all(key in models for key in ['new_classifier', 'new_vectorizer', 'new_threshold']):
@@ -284,24 +322,13 @@ def main():
             X
         )
         if y_pred_new is not None:
-            results['new_ensemble'] = evaluate_model(y, y_pred_new, "New Ensemble")
+            metrics = evaluate_model(y, y_pred_new, "New Ensemble")
+            results['new_ensemble'] = metrics
+            new_cm = metrics['confusion_matrix']
+            new_report = classification_report(y, y_pred_new, target_names=['Negative', 'Positive'])
     
-    # Compare models if both are available
-    if len(results) == 2:
-        compare_models(results)
-        analyze_errors(y, y_pred_old, y_pred_new, X, "Model Comparison")
-    
-    # Save results
-    results_file = Path(__file__).parent / "evaluation_results.csv"
-    results_df = pd.DataFrame({
-        'text': X,
-        'true_label': y,
-        'old_prediction': y_pred_old if 'old_model' in results else None,
-        'new_prediction': y_pred_new if 'new_ensemble' in results else None,
-        'new_probability': probabilities if 'new_ensemble' in results else None
-    })
-    results_df.to_csv(results_file, index=False)
-    print(f"\nDetailed results saved to: {results_file}")
+    # Save summary only (no predictions)
+    save_performance_summary(results, old_report, new_report, old_cm, new_cm)
     
     print("\n=== Evaluation Complete ===")
 

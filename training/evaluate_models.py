@@ -88,8 +88,8 @@ def load_models():
     
     # Load old model - try both locations
     old_model_paths = [
-        data_dir / "elephant_ivory_model_old.joblib",
-        dag_data_dir / "elephant_ivory_model_old.joblib"
+        data_dir / "elephant_ivory_model.joblib",
+        dag_data_dir / "elephant_ivory_model.joblib"
     ]
     
     old_model_path = None

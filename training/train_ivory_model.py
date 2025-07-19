@@ -13,29 +13,22 @@ from pathlib import Path
 def load_full_data():
     data_dir = Path(__file__).parent / "data"
     # Load positives
-    v1_file = data_dir / "extracted_open_source_records.csv"
-    v2_file = data_dir / "extracted_open_source_records_v2.csv"
-    pos_dfs = []
-    if v1_file.exists():
-        v1_df = pd.read_csv(v1_file)
-        pos_dfs.append(v1_df)
-    if v2_file.exists():
-        v2_df = pd.read_csv(v2_file)
-        pos_dfs.append(v2_df)
-    if not pos_dfs:
+    pos_file = data_dir / "extracted_positive_examples.csv"
+    if not pos_file.exists():
         raise ValueError("No positive data found!")
-    pos_df = pd.concat(pos_dfs, ignore_index=True)
+    pos_df = pd.read_csv(pos_file)
     pos_df['label'] = 1
     # Load negatives
-    neg_file = data_dir / "extracted_negative_examples.csv"
+    neg_file = data_dir / "extracted_negative_examples_full_summaries_labelled.csv"
     if not neg_file.exists():
         raise ValueError("No negative data found!")
     neg_df = pd.read_csv(neg_file)
     neg_df['label'] = 0
     # Combine
     df = pd.concat([pos_df, neg_df], ignore_index=True)
-    # Remove duplicates by link
+    # Remove duplicates by link (in case negatives overlap)
     df = df.drop_duplicates(subset=['link'])
+    print(f"After deduplication: {sum(df['label']==1)} positive, {sum(df['label']==0)} negative samples")
     # Drop rows missing required fields (only 'summary' is required)
     df = df.dropna(subset=['summary'])
     df['text'] = df['title'].fillna('').str.lower() + ' ' + df['summary'].fillna('').str.lower()
@@ -125,6 +118,9 @@ def main():
     # 1) Hyperparameter search
     print("Starting hyperparameter search...")
     best_pipeline = hyperparam_search(X_train, y_train)
+    # Print which model was selected
+    best_model_name = type(best_pipeline.named_steps['clf']).__name__
+    print(f"Selected model: {best_model_name}")
 
     # 2) Evaluate on validation set
     print("Evaluating on validation set...")
@@ -138,7 +134,7 @@ def main():
     
     # Save test set for evaluation
     test_set = pd.DataFrame({'text': X_test, 'label': y_test})
-    test_set.to_csv("../training/data/test_set.csv", index=False)
+    test_set.to_csv("../training/data/test_set_model.csv", index=False)
     print("Saved test set to ../training/data/test_set_model.csv")
 
     joblib.dump(

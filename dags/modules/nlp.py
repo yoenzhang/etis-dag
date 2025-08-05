@@ -14,7 +14,7 @@ from modules.prompt import build_prompt
 
 # Load your Gemini API key from Airflow connections
 conn = BaseHook.get_connection("gemini_default")
-api_key = conn.extra_dejson.get("api_key")
+api_key = conn.password  # API key is stored in the password field for HTTP connections
 genai.configure(api_key=api_key)
                  
 def extract_ivory_info_for_articles():

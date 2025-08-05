@@ -197,3 +197,51 @@ weighted avg       0.99      0.99      0.99       661
 
 ========================================
 
+======================================================================================================================
+OLD MODEL TRAINED ON NEW DATA WITH FULL ARTICLES (BILAL) + NEW MODEL (YOEN) TRAINED ON NEW DATA WITH FULL ARTICLES
+======================================================================================================================
+
+--- Old Model ---
+Accuracy: 0.9631410256410257
+Precision: 0.9591194968553459
+Recall: 0.9682539682539683
+F1: 0.9636650868878357
+
+Confusion Matrix:
+[[296  13]
+ [ 10 305]]
+
+Classification Report:
+              precision    recall  f1-score   support
+
+    Negative       0.97      0.96      0.96       309
+    Positive       0.96      0.97      0.96       315
+
+    accuracy                           0.96       624
+   macro avg       0.96      0.96      0.96       624
+weighted avg       0.96      0.96      0.96       624
+
+
+--- New Ensemble Model ---
+Accuracy: 0.9887820512820513
+Precision: 0.9935897435897436
+Recall: 0.9841269841269841
+F1: 0.988835725677831
+
+Confusion Matrix:
+[[307   2]
+ [  5 310]]
+
+Classification Report:
+              precision    recall  f1-score   support
+
+    Negative       0.98      0.99      0.99       309
+    Positive       0.99      0.98      0.99       315
+
+    accuracy                           0.99       624
+   macro avg       0.99      0.99      0.99       624
+weighted avg       0.99      0.99      0.99       624
+
+
+========================================
+

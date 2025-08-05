@@ -19,7 +19,7 @@ def load_full_data():
     pos_df = pd.read_csv(pos_file)
     pos_df['label'] = 1
     # Load negatives
-    neg_file = data_dir / "extracted_negative_examples_full_summaries_labelled.csv"
+    neg_file = data_dir / "extracted_negative_examples_entire_article_labelled.csv"
     if not neg_file.exists():
         raise ValueError("No negative data found!")
     neg_df = pd.read_csv(neg_file)

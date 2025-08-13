@@ -1,34 +1,45 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# Data files
+*.csv
+*.xlsx
+*.xls
+*.png
+*.jpg
+*.jpeg
+*.gif
 
-# Virtual environments
-venv/
-.env/
-.venv/
+# Model files
+*.joblib
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.model
+*.bin
 
-# Airflow metadata & logs
-airflow.db
-airflow.cfg
+# Data directories
+**/data/
+data/
+
+# Logs
 logs/
 *.log
 
-# Model artifacts / large data files
-data/*.joblib
-modules/*.joblib
+# Environment files
+.env
+.venv
+env/
+venv/
 
-# IDEs and editors
+# IDE files
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
+*.swp
+*.swo
 
-# OS generated
+# OS files
 .DS_Store
 Thumbs.db
 
-# Python packaging
-*.egg-info/
-dist/
-build/
+# Temporary files
+*.tmp
+*.temp

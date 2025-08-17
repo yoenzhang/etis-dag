@@ -1,13 +1,14 @@
 import re
 from dataclasses import dataclass
 from typing import List
+from modules.negative_collector import negative_collector
 
 @dataclass
 class Article:
     title: str
     link: str
     published: str
-    content: str  # short snippet or summary
+    content: str
 
 def rule_based_filter(articles: List[Article]) -> List[Article]:
     """
@@ -25,7 +26,7 @@ def rule_based_filter(articles: List[Article]) -> List[Article]:
     # Negative contexts that often appear with "ivory" but are 
     # not about wildlife or illegal trade
     negative_contexts = {
-        "ivory coast", "côte d’ivoire",
+        "ivory coast", "côte d'ivoire",
         "ivory tower", "ivory color", "ivory dress", 
         "ivory wedding", "ivory underwear", "ivory barn", "ivory paint",
         "ivory saree", "ivory trouser", "ivory boxer"
@@ -55,10 +56,10 @@ def rule_based_filter(articles: List[Article]) -> List[Article]:
             if has_negative:
                 # definitely discard
                 print("removed x" + article.title)
-                pass
+                negative_collector.add_filtered_out_article(article, "Negative context (e.g., Ivory Coast)")
             else:
                 # no negative, no positive => likely not relevant
-                pass
                 print("removed x" + article.title)
+                negative_collector.add_filtered_out_article(article, "No relevant keywords")
 
     return relevant_articles

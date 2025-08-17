@@ -1,4 +1,4 @@
-import openai
+import google.generativeai as genai
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.hooks.base import BaseHook 
 import psycopg2
@@ -8,18 +8,17 @@ from modules.prompt import build_prompt
 import json
 import os
 import ssl
+from modules.negative_collector import negative_collector
 
-# from psycopg2 import sql  # Not needed if we're not constructing dynamic SQL
 from modules.prompt import build_prompt
 
-# Load your OpenAI key from env or Airflow connections/variables
-openai.api_key = os.getenv("OPENAI_API_KEY") or \
-                 (BaseHook.get_connection("openai_default").password
-                  if BaseHook.get_connection("openai_default") else None)
-                 
+# Load your Gemini API key from Airflow connections
+conn = BaseHook.get_connection("gemini_default")
+api_key = conn.password  # API key is stored in the password field for HTTP connections
+genai.configure(api_key=api_key)
                  
 def extract_ivory_info_for_articles():
-    """Fetch unprocessed ivory-related articles and extract seizure info using GPT-3.5-turbo."""
+    """Fetch unprocessed ivory-related articles and extract seizure info using Gemini 2.5 Flash."""
     
     pg_hook = PostgresHook(postgres_conn_id="postgres_default")
     
@@ -41,42 +40,20 @@ def extract_ivory_info_for_articles():
         return
     
     for (article_id, title, summary, url, content) in articles_to_process:
-        # Build the prompt messages for this article
-        messages = build_prompt(title or "", summary or "", content or "", url or "")
-                
-        # Call the OpenAI ChatCompletion API
+        # Build the prompt as a string for Gemini
+        prompt = build_prompt(title or "", summary or "", content or "", url or "")
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=messages,
-                temperature=0,  # deterministic output
-                max_tokens=512  # enough space for output JSON
-            )
-        except openai.error.RateLimitError as e:
-            print(f"Rate limit error for article {article_id}, retrying in 5 seconds...")
-            time.sleep(5)
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    temperature=0,
-                    max_tokens=512
-                )
-            except Exception as e2:
-                print(f"Failed to get response for article {article_id} after retry: {e2}")
-                continue  # skip this article on persistent failure
+            model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
+            response = model.generate_content(prompt)
+            result_text = response.text.strip()
+            time.sleep(6)  # Throttle to stay under 10 requests per minute
         except Exception as e:
-            print(f"OpenAI API error for article {article_id}: {e}")
+            print(f"Gemini API error for article {article_id}: {e}")
             continue
-        
-        # Extract the model's response
-        result_text = response['choices'][0]['message']['content'].strip()
-        
         # Parse the JSON output
         try:
             data = json.loads(result_text)
         except json.JSONDecodeError:
-            # Attempt to isolate JSON substring if model returned extra text
             try:
                 start_idx = result_text.index('{')
                 end_idx = result_text.rfind('}')
@@ -106,6 +83,15 @@ def extract_ivory_info_for_articles():
         
         if not_relevant:
             print(f"Article {article_id} is not an ivory seizure-related article. Skipping insertion.")
+            # Collect this as a negative example
+            negative_collector.add_llm_rejected_article(
+                title=title or '',
+                link=url or '',
+                published='',  # We don't have published date in this query
+                summary=summary or '',
+                llm_comment=data.get("comment", "No seizure information found"),
+                llm_response=result_text
+            )
             continue
         
         # Insert the extracted data using a plain string for the INSERT query
